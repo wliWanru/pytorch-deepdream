@@ -18,7 +18,7 @@ class AlexNet(torch.nn.Module):
             alexnet = models.alexnet(pretrained=True, progress=show_progress).eval()
         else:
             alexnet = models.alexnet(pretrained=False, progress=show_progress).eval()
-            state_dict = torch.load(pretrained_weights)
+            state_dict = torch.load('weights/' + pretrained_weights)
 
             new_state_dict = {}  # modify key names and make it compatible with current PyTorch model naming scheme
             for old_key in state_dict.keys():

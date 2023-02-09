@@ -41,7 +41,7 @@ SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.bmp']
 
 BINARIES_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'models', 'binaries')
 DATA_DIR_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'data')
-
+WEIGHT_DIR_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'weights')
 INPUT_DATA_PATH = os.path.join(DATA_DIR_PATH, 'input')
 OUT_IMAGES_PATH = os.path.join(DATA_DIR_PATH, 'out-images')
 OUT_VIDEOS_PATH = os.path.join(DATA_DIR_PATH, 'out-videos')

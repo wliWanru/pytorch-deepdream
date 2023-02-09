@@ -110,8 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--layers_to_use", type=str, nargs='+', help="Layer whose activations we should maximize while dreaming", default=['fc7'])
     parser.add_argument("--model_name", choices=[m.name for m in SupportedModels],
                         help="Neural network (model) to use for dreaming", default=SupportedModels.ALEXNET.name)
-    parser.add_argument("--pretrained_weights", choices=[pw.name for pw in SupportedPretrainedWeights],
-                        help="Pretrained weights to use for the above model", default='alexnet_pretrained_pca.pth')
 
     # Main params for experimentation (especially pyramid_size and pyramid_ratio)
     parser.add_argument("--pyramid_ratio", type=float, help="Ratio of image sizes in the pyramid", default=1.8)
@@ -129,15 +127,19 @@ if __name__ == "__main__":
     for arg in vars(args):
         config[arg] = getattr(args, arg)
     config['dump_dir'] = OUT_IMAGES_PATH
-    config['dump_dir'] = os.path.join(config['dump_dir'], f'{config["model_name"]}_{config["pretrained_weights"]}')
     config['input_name'] = os.path.basename(config['input'])
 
-    print('Dreaming started!')
+    all_models = os.listdir(WEIGHT_DIR_PATH)
+    for model_now in all_models:
+        config['pretrained_weights']=model_now
+        config['dump_dir'] = os.path.join(config['dump_dir'], f'{config["pretrained_weights"][0:-4]}')
 
-    for pp in range(1,4):
-        for ii in range(10,101,10):
-            config['pyramid_size']=pp
-            config['num_gradient_ascent_iterations']=ii
-            img = deep_dream_static_image(config, img=None)  # img=None -> will be loaded inside of deep_dream_static_image
-            dump_path = utils.save_and_maybe_display_image(config, img)
-            print(f'Saved DeepDream static image to: {os.path.relpath(dump_path)}\n')
+        print('Dreaming started!')
+        for pp in range(1,3):
+            for ii in range(10,101,50):
+                config['pyramid_size']=pp
+                config['num_gradient_ascent_iterations']=ii
+                
+                img = deep_dream_static_image(config, img=None)  # img=None -> will be loaded inside of deep_dream_static_image
+                dump_path = utils.save_and_maybe_display_image(config, img)
+                print(f'Saved DeepDream static image to: {os.path.relpath(dump_path)}\n')
