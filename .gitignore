@@ -16,3 +16,4 @@ models/binaries
 *.png
 *.psd
 *.pth
+*.mat

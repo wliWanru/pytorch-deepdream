@@ -18,11 +18,11 @@ import cv2 as cv
 
 import utils.utils as utils
 from utils.constants import *
-
+from tqdm import tqdm
 # loss.backward(layer) <- original implementation did it like this it's equivalent to MSE(reduction='sum')/2
 def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
     # Step 0: Feed forward pass
-    out = model(input_tensor,2)
+    out = model(input_tensor,config['channel'])
 
     # Step 1: Grab activations/feature maps of interest
     activations = [out[layer_id_to_use] for layer_id_to_use in layer_ids_to_use]
@@ -35,7 +35,7 @@ def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
         # using torch.zeros_like as if we wanted to make activations as small as possible but we'll do gradient ascent
         # and that will cause it to actually amplify whatever the network "sees" thus yielding the famous DeepDream look
         # loss_component = torch.nn.MSELoss(reduction='mean')(layer_activation, torch.zeros_like(layer_activation))
-        loss_component = layer_activation
+        loss_component = config['valance']*layer_activation
         losses.append(loss_component)
 
     loss = torch.mean(torch.stack(losses))
@@ -112,7 +112,7 @@ if __name__ == "__main__":
                         help="Neural network (model) to use for dreaming", default=SupportedModels.ALEXNET.name)
 
     # Main params for experimentation (especially pyramid_size and pyramid_ratio)
-    parser.add_argument("--pyramid_ratio", type=float, help="Ratio of image sizes in the pyramid", default=1.8)
+    parser.add_argument("--pyramid_ratio", type=float, help="Ratio of image sizes in the pyramid", default=1.5)
     parser.add_argument("--lr", type=float, help="Learning rate i.e. step size in gradient ascent", default=0.1)
 
     # You usually won't need to change these as often
@@ -126,20 +126,29 @@ if __name__ == "__main__":
     config = dict()
     for arg in vars(args):
         config[arg] = getattr(args, arg)
-    config['dump_dir'] = OUT_IMAGES_PATH
     config['input_name'] = os.path.basename(config['input'])
-
     all_models = os.listdir(WEIGHT_DIR_PATH)
+    global_start_time = time.time()
+    print('using ', DEVICE)
     for model_now in all_models:
+        start_time = time.time()
         config['pretrained_weights']=model_now
-        config['dump_dir'] = os.path.join(config['dump_dir'], f'{config["pretrained_weights"][0:-4]}')
-
-        print('Dreaming started!')
-        for pp in range(1,3):
-            for ii in range(10,101,50):
-                config['pyramid_size']=pp
-                config['num_gradient_ascent_iterations']=ii
-                
-                img = deep_dream_static_image(config, img=None)  # img=None -> will be loaded inside of deep_dream_static_image
-                dump_path = utils.save_and_maybe_display_image(config, img)
-                print(f'Saved DeepDream static image to: {os.path.relpath(dump_path)}\n')
+        config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}')
+        print('Dreaming started for ', config['pretrained_weights'])
+        for pp in range(1,5):
+            for ii in tqdm(range(10,151,10)):
+                for channels in range(4):
+                    for valance in [-1,1]:
+                        config['pyramid_size']=pp
+                        config['num_gradient_ascent_iterations']=ii
+                        config['channel']=channels
+                        config['valance']=valance
+                        config['valance_name']='pos' if valance==1 else 'neg'
+                        img = deep_dream_static_image(config, img=None)  # img=None -> will be loaded inside of deep_dream_static_image
+                        temp_dump_path = utils.save_and_maybe_display_image(config, img)
+                        end_time = time.time()
+            print('model ', config['pretrained_weights'][8:-4],' Psize ' ,pp)
+            print('Time ' ,end_time-start_time)
+    global_end_time = time.time()
+    print('Global Time ' ,global_end_time-global_start_time)
+    # 4730s

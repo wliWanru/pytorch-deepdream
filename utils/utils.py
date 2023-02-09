@@ -75,7 +75,7 @@ def build_image_name(config):
     input_name = 'rand_noise' if config['use_noise'] else config['input_name'].rsplit('.', 1)[0]
     layers = '_'.join(config['layers_to_use'])
     # Looks awful but makes the creation process transparent for other creators
-    img_name = f'{input_name}_width_{config["img_width"]}_model_{config["model_name"]}_{config["pretrained_weights"]}_{layers}_pyrsize_{config["pyramid_size"]}_pyrratio_{config["pyramid_ratio"]}_iter_{config["num_gradient_ascent_iterations"]}_lr_{config["lr"]}_shift_{config["spatial_shift_size"]}_smooth_{config["smoothing_coefficient"]}.jpg'
+    img_name = f'channel_{config["channel"]+1}_valance_{config["valance_name"]}_width_{config["img_width"]}_{config["pretrained_weights"][8:-4]}_{layers}_pyrsize_{config["pyramid_size"]}_iter_{config["num_gradient_ascent_iterations"]}.jpg'
     return img_name
 
 
@@ -122,7 +122,6 @@ def fetch_and_prepare_model(model_type, pretrained_weights, device):
         model = AlexNet(pretrained_weights,requires_grad=False, show_progress=True).to(device)
     else:
         raise Exception('Model not yet supported.')
-    
     return model
 
 
@@ -264,7 +263,6 @@ def print_ouroboros_video_header(config):
     print(f'Video output width = {config["img_width"]}')
     print(f'fps = {config["fps"]}')
     print('*' * 50, '\n')
-
 
 def parse_input_file(input):
     # Handle abs/rel paths

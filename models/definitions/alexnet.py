@@ -15,22 +15,22 @@ class AlexNet(torch.nn.Module):
     def __init__(self, pretrained_weights,requires_grad=False, show_progress=False):
         super().__init__()
         if pretrained_weights == SupportedPretrainedWeights.IMAGENET.name:
-            alexnet = models.alexnet(pretrained=True, progress=show_progress).eval()
+            alexnet = models.alexnet(weights=None, progress=show_progress).eval()
         else:
-            alexnet = models.alexnet(pretrained=False, progress=show_progress).eval()
+            alexnet = models.alexnet(weights=None, progress=show_progress).eval()
             state_dict = torch.load('weights/' + pretrained_weights)
 
             new_state_dict = {}  # modify key names and make it compatible with current PyTorch model naming scheme
             for old_key in state_dict.keys():
                 new_key = old_key.replace('.module', '')
                 new_state_dict[new_key] = state_dict[old_key]
-
-            alexnet.classifier[-1] = torch.nn.Linear(alexnet.classifier[-1].in_features, 1000)
+            alexnet=torch.nn.DataParallel(alexnet)
+            alexnet.module.classifier[-1] = torch.nn.Linear(alexnet.module.classifier[-1].in_features, new_state_dict['module.classifier.6.bias'].shape[0])
             alexnet.load_state_dict(new_state_dict, strict=True)
 
-        alexnet_pretrained_features = alexnet.features
-        alexnet_avgp = alexnet.avgpool
-        alexnet_fc = alexnet.classifier
+        alexnet_pretrained_features = alexnet.module.features
+        alexnet_avgp = alexnet.module.avgpool
+        alexnet_fc = alexnet.module.classifier
         self.layer_names = ['relu1', 'relu2', 'relu3', 'relu4', 'relu5','avg','fc7']
 
         self.slice1 = torch.nn.Sequential()
