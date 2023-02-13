@@ -31,7 +31,7 @@ class AlexNet(torch.nn.Module):
         alexnet_pretrained_features = alexnet.module.features
         alexnet_avgp = alexnet.module.avgpool
         alexnet_fc = alexnet.module.classifier
-        self.layer_names = ['relu1', 'relu2', 'relu3', 'relu4', 'relu5','avg','fc7']
+        self.layer_names = ['relu1', 'relu2', 'relu3', 'relu4', 'relu5','avg','fc6','fc7']
 
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
@@ -40,6 +40,7 @@ class AlexNet(torch.nn.Module):
         self.slice5 = torch.nn.Sequential()
         self.slice6 = torch.nn.Sequential()
         self.slice7 = torch.nn.Sequential()
+        self.slice8 = torch.nn.Sequential()
         for x in range(2):
             self.slice1.add_module(str(x), alexnet_pretrained_features[x])
         for x in range(2, 5):
@@ -52,8 +53,10 @@ class AlexNet(torch.nn.Module):
             self.slice5.add_module(str(x), alexnet_pretrained_features[x])
 
         self.slice6.add_module('avg',alexnet_avgp)
-        for x in range(5):
+        for x in range(4):
             self.slice7.add_module(str(x), alexnet_fc[x])
+        for x in [4]:
+            self.slice8.add_module(str(x), alexnet_fc[x])
 
         # Set these to False so that PyTorch won't be including them in it's autograd engine - eating up precious memory
         if not requires_grad:
@@ -74,9 +77,11 @@ class AlexNet(torch.nn.Module):
         x = self.slice6(x)
         avg5 = x
         x = torch.flatten(x, 1)
+        fc6 = self.slice7[1](x)[0,interested_channel]
         x = self.slice7(x)
+        x = self.slice8(x)
         fc7 = x[0,interested_channel]
 
         alexnet_outputs = namedtuple("AlexNetOutputs", self.layer_names)
-        out = alexnet_outputs(relu1, relu2, relu3, relu4, relu5,avg5,fc7)
+        out = alexnet_outputs(relu1, relu2, relu3, relu4, relu5,avg5,fc6,fc7)
         return out

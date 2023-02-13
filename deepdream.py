@@ -19,6 +19,8 @@ import cv2 as cv
 import utils.utils as utils
 from utils.constants import *
 from tqdm import tqdm
+import scipy.io as scio
+
 # loss.backward(layer) <- original implementation did it like this it's equivalent to MSE(reduction='sum')/2
 def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
     # Step 0: Feed forward pass
@@ -37,7 +39,6 @@ def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
         # loss_component = torch.nn.MSELoss(reduction='mean')(layer_activation, torch.zeros_like(layer_activation))
         loss_component = config['valance']*layer_activation
         losses.append(loss_component)
-
     loss = torch.mean(torch.stack(losses))
     loss.backward()
 
@@ -64,8 +65,8 @@ def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
     input_tensor.data = torch.max(torch.min(input_tensor, UPPER_IMAGE_BOUND), LOWER_IMAGE_BOUND)
 
 
-def deep_dream_static_image(config, img):
-    model = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
+def deep_dream_static_image(config, model):
+    
     
     try:
         layer_ids_to_use = [model.layer_names.index(layer_name) for layer_name in config['layers_to_use']]
@@ -74,13 +75,13 @@ def deep_dream_static_image(config, img):
         print(f'Available layers for model {config["model_name"]} are {model.layer_names}.')
         return
 
-    if img is None:  # load either the provided image or start from a pure noise image
-        img_path = utils.parse_input_file(config['input'])
+    # load either the provided image or start from a pure noise image
+    img_path = utils.parse_input_file(config['input'])
         # load a numpy, [0, 1] range, channel-last, RGB image
-        img = utils.load_image(img_path, target_shape=config['img_width'])
-        if config['use_noise']:
-            shape = img.shape
-            img = np.random.uniform(low=0.0, high=1.0, size=shape).astype(np.float32)
+    img = utils.load_image(img_path, target_shape=config['img_width'])
+    if config['use_noise']:
+        shape = img.shape
+        img = np.random.uniform(low=0.0, high=1.0, size=shape).astype(np.float32)
 
     img = utils.pre_process_numpy_img(img)
     base_shape = img.shape[:-1]  # save initial height and width
@@ -103,18 +104,15 @@ if __name__ == "__main__":
 
     # Only a small subset is exposed by design to avoid cluttering
     parser = argparse.ArgumentParser()
-
     # Common params
-    parser.add_argument("--input", type=str, help="Input IMAGE or VIDEO name that will be used for dreaming", default='noise.jpg')
+    parser.add_argument("--input", type=str, help="Input IMAGE or VIDEO name that will be used for dreaming", default='0.jpg')
     parser.add_argument("--img_width", type=int, help="Resize input image to this width", default=224)
-    parser.add_argument("--layers_to_use", type=str, nargs='+', help="Layer whose activations we should maximize while dreaming", default=['fc7'])
     parser.add_argument("--model_name", choices=[m.name for m in SupportedModels],
                         help="Neural network (model) to use for dreaming", default=SupportedModels.ALEXNET.name)
 
     # Main params for experimentation (especially pyramid_size and pyramid_ratio)
     parser.add_argument("--pyramid_ratio", type=float, help="Ratio of image sizes in the pyramid", default=1.5)
     parser.add_argument("--lr", type=float, help="Learning rate i.e. step size in gradient ascent", default=0.1)
-
     # You usually won't need to change these as often
     parser.add_argument("--should_display", action='store_true', help="Display intermediate dreaming results (default False)")
     parser.add_argument("--spatial_shift_size", type=int, help='Number of pixels to randomly shift image before grad ascent', default=32)
@@ -123,32 +121,58 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Wrapping configuration into a dictionary
+    doing_fc7_feature = 1
+    doing_fc6_word_unit = 1
+    max_pyramid=2
+    max_iteration = 201
+    iteration_step = 100
     config = dict()
     for arg in vars(args):
         config[arg] = getattr(args, arg)
     config['input_name'] = os.path.basename(config['input'])
-    all_models = os.listdir(WEIGHT_DIR_PATH)
-    global_start_time = time.time()
+    config['use_noise'] = True
     print('using ', DEVICE)
-    for model_now in all_models:
+
+    all_models = os.listdir(WEIGHT_DIR_PATH)
+
+    global_start_time = time.time()
+    if(doing_fc7_feature):
+        config['layers_to_use']=['fc7']
+        for model_now in all_models:
+            start_time = time.time()
+            config['pretrained_weights']=model_now
+            config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}_{config["layers_to_use"][0]}')
+            print('Dreaming started for pc from ', config['pretrained_weights'])
+            for config['pyramid_size'] in range(1,max_pyramid):
+                for config['num_gradient_ascent_iterations'] in tqdm(range(10,max_iteration,iteration_step)):
+                    for config['channel'] in range(5):
+                        for config['valance'] in [1,-1]:
+                            config['valance_name']='pos' if config['valance']==1 else 'neg'
+                            model_ft = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
+                            img = deep_dream_static_image(config, model_ft)  # img=None -> will be loaded inside of deep_dream_static_image
+                            temp_dump_path = utils.save_and_maybe_display_image(config, img)
+                            end_time = time.time()
+                print('model ', config['pretrained_weights'][8:-4],' Psize ' ,config['pyramid_size'])
+                print('Time ' ,end_time-start_time)
+
+    if(doing_fc6_word_unit):
+        config['valance']=1
+        config['valance_name']='pos'
+        config['layers_to_use']=['fc6']
+        model_now = 'alexnet_pretrained_pca2.pth'
         start_time = time.time()
         config['pretrained_weights']=model_now
-        config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}')
-        print('Dreaming started for ', config['pretrained_weights'])
-        for pp in range(1,5):
-            for ii in tqdm(range(10,151,10)):
-                for channels in range(4):
-                    for valance in [-1,1]:
-                        config['pyramid_size']=pp
-                        config['num_gradient_ascent_iterations']=ii
-                        config['channel']=channels
-                        config['valance']=valance
-                        config['valance_name']='pos' if valance==1 else 'neg'
-                        img = deep_dream_static_image(config, img=None)  # img=None -> will be loaded inside of deep_dream_static_image
-                        temp_dump_path = utils.save_and_maybe_display_image(config, img)
-                        end_time = time.time()
-            print('model ', config['pretrained_weights'][8:-4],' Psize ' ,pp)
+        config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}_{config["layers_to_use"][0]}')
+        print('Dreaming started for fc6 unit from ', config['pretrained_weights'])
+        interested_channel = scio.loadmat('dprime_idx_fc6.mat')['dprime_idx'][0][-10:]
+        for config['pyramid_size'] in range(1,max_pyramid):
+            for config['num_gradient_ascent_iterations'] in tqdm(range(10,max_iteration,iteration_step)):
+                for config['channel'] in interested_channel:
+                    model_ft = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
+                    img = deep_dream_static_image(config, model_ft) 
+                    temp_dump_path = utils.save_and_maybe_display_image(config, img)
+                    end_time = time.time()
+            print('model ', config['pretrained_weights'][8:-4],' Psize ' ,config['pyramid_size'])
             print('Time ' ,end_time-start_time)
     global_end_time = time.time()
     print('Global Time ' ,global_end_time-global_start_time)
-    # 4730s

@@ -34,7 +34,7 @@ def ftest(pathnow,filename,model):
         out = model.module.features(img)
         out = model.module.avgpool(out)
         out = torch.flatten(out, 1)
-        fc7 = model.module.classifier[0:5](out)
+        fc7 = model.module.classifier[0:4](out)
     return fc7
 
 root_dir = 'C:\\Users\\DELL\\Documents\\GitHub\\pytorch-deepdream'

@@ -2,13 +2,13 @@ clear;clc;close all
 cd C:\Users\DELL\Documents\GitHub\pytorch-deepdream\
 
 all_model = dir('response\*.mat');
-example_num=6;
+example_num=2;
 for mm = 1:length(all_model)
     model_now = all_model(mm).name;
     load(['response\', model_now]);
     
     figure;
-    interested_channels = 1:4;
+    interested_channels = [123	2715	1052	3044	2384];
     for channel_now = interested_channels
         heiti_response = all_heiti_data(:,channel_now);
         dp_response = all_dp_data(:,channel_now);
@@ -17,7 +17,6 @@ for mm = 1:length(all_model)
 
         [sort_dp_response,sort_dp_idx] = sort(dp_response);
 
-        
         nexttile([1,3])
         img_to_show=[];
         for ee = 1:example_num
