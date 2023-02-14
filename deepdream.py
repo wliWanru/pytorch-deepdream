@@ -123,9 +123,9 @@ if __name__ == "__main__":
     # Wrapping configuration into a dictionary
     doing_fc7_feature = 1
     doing_fc6_word_unit = 1
-    max_pyramid=2
+    max_pyramid=5
     max_iteration = 201
-    iteration_step = 100
+    iteration_step = 10
     config = dict()
     for arg in vars(args):
         config[arg] = getattr(args, arg)
@@ -159,20 +159,25 @@ if __name__ == "__main__":
         config['valance']=1
         config['valance_name']='pos'
         config['layers_to_use']=['fc6']
-        model_now = 'alexnet_pretrained_pca2.pth'
-        start_time = time.time()
-        config['pretrained_weights']=model_now
-        config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}_{config["layers_to_use"][0]}')
-        print('Dreaming started for fc6 unit from ', config['pretrained_weights'])
-        interested_channel = scio.loadmat('dprime_idx_fc6.mat')['dprime_idx'][0][-10:]
-        for config['pyramid_size'] in range(1,max_pyramid):
-            for config['num_gradient_ascent_iterations'] in tqdm(range(10,max_iteration,iteration_step)):
-                for config['channel'] in interested_channel:
-                    model_ft = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
-                    img = deep_dream_static_image(config, model_ft) 
-                    temp_dump_path = utils.save_and_maybe_display_image(config, img)
-                    end_time = time.time()
-            print('model ', config['pretrained_weights'][8:-4],' Psize ' ,config['pyramid_size'])
-            print('Time ' ,end_time-start_time)
+
+        all_models = ['pretrained','exposure_100_0','exposure_100_25','exposure_100_50','exposure_100_75','exposure_100_100']
+        for mm in all_models:
+        
+            model_now = 'alexnet_' + mm + '_pca.pth'
+            selectivity_now = mm + '_dprime_idx_fc6.mat'
+            interested_channel = scio.loadmat(os.path.join(SELECTIVITY_DIR_PATH,selectivity_now))['dprime_idx'][0][-5:]
+            start_time = time.time()
+            config['pretrained_weights']=model_now
+            config['dump_dir'] = os.path.join(OUT_IMAGES_PATH, f'{config["pretrained_weights"][0:-4]}_{config["layers_to_use"][0]}')
+            print('Dreaming started for fc6 unit from ', config['pretrained_weights'])
+            for config['pyramid_size'] in range(1,max_pyramid):
+                for config['num_gradient_ascent_iterations'] in tqdm(range(10,max_iteration,iteration_step)):
+                    for config['channel'] in interested_channel:
+                        model_ft = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
+                        img = deep_dream_static_image(config, model_ft) 
+                        temp_dump_path = utils.save_and_maybe_display_image(config, img)
+                        end_time = time.time()
+                print('model ', config['pretrained_weights'][8:-4],' Psize ' ,config['pyramid_size'])
+                print('Time ' ,end_time-start_time)
     global_end_time = time.time()
     print('Global Time ' ,global_end_time-global_start_time)

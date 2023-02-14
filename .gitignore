@@ -18,3 +18,4 @@ models/binaries
 *.pth
 *.mat
 response_old.zip
+check_result.asv
