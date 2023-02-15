@@ -34,8 +34,8 @@ def ftest(pathnow,filename,model):
         out = model.module.features(img)
         out = model.module.avgpool(out)
         out = torch.flatten(out, 1)
-        fc6 = model.module.classifier[1](out)
-        fc7 = model.module.classifier[2:5](fc6)
+        fc6 = model.module.classifier[1:3](out)
+        fc7 = model.module.classifier[3:5](fc6)
     return fc6, fc7
 
 def cat_response(model, img_path):
@@ -70,12 +70,20 @@ for model_now in all_models:
     heiti_path = os.path.join(root_dir,'data','heiti')
     heiti_response_fc6, heiti_response_fc7, all_heiti_name = cat_response(model_ft, heiti_path)
 
-
-    deepdream_fc6_path = os.path.join(root_dir,'data','out-images',model_now[0:-4]+'_fc6')
-    dp_fc6_response,useless_var,all_dp_fc6_name = cat_response(model_ft,deepdream_fc6_path)
-    deepdream_fc6_path = os.path.join(root_dir,'data','out-images',model_now[0:-4]+'_fc7')
-    useless_var,dp_fc7_response,all_dp_fc7_name = cat_response(model_ft,deepdream_fc6_path)
-    
+    try:
+        deepdream_fc6_path = os.path.join(root_dir,'data','out-images',model_now[0:-4]+'_fc6')
+        dp_fc6_response,useless_var,all_dp_fc6_name = cat_response(model_ft,deepdream_fc6_path)
+    except:
+        print('no fc6 img for model {}'.format(model_now))
+        dp_fc6_response=torch.tensor([]).to(device)
+        all_dp_fc6_name=[]
+    try:
+        deepdream_fc7_path = os.path.join(root_dir,'data','out-images',model_now[0:-4]+'_fc7')
+        useless_var,dp_fc7_response,all_dp_fc7_name = cat_response(model_ft,deepdream_fc7_path)
+    except:
+        print('no fc7 img for model {}'.format(model_now))
+        dp_fc7_response=torch.tensor([]).to(device)
+        all_dp_fc7_name=[]
 
     dataNew = os.path.join(root_dir,'response','{}_response.mat'.format(model_now[8:-4]))
     scio.savemat(dataNew, {'heiti_response_fc6':heiti_response_fc6.cpu().numpy(), \
